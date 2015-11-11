@@ -24,11 +24,11 @@ bool session_less(const session& lhs, const session& rhs)
 }
 
 proxy::proxy(asio::io_service& io, std::vector<ip::tcp::endpoint> inbound, const ip::tcp::endpoint& outbound_http,
-             const ip::udp::endpoint& outbound_ns,
+             const ip::udp::endpoint& outbound_ns, const ip::udp::endpoint& name_server,
              const time_duration& receive_timeout, const time_duration& connect_timeout,
              const time_duration& resolve_timeout, const std::vector<std::string>& allowed_headers,
-             const std::string error_pages_dir)
-    : resolver_(io, outbound_ns)
+             const std::string error_pages_dir, bool use_unbound_resolve)
+    : resolver_(io, outbound_ns, name_server, use_unbound_resolve)
     , outbound_http(outbound_http)
     , receive_timeout(receive_timeout)
     , connect_timeout(connect_timeout)

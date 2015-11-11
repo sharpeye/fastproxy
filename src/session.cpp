@@ -128,7 +128,9 @@ void session::finished_waiting_resolve_timer(const error_code& ec)
 void session::finished_resolving(const error_code& ec, resolver::iterator begin, resolver::iterator end)
 {
     TRACE_ERROR(ec);
+
     timeout_timer.cancel();
+
     if (ec)
     {
         statistics::increment("resolve_failed");

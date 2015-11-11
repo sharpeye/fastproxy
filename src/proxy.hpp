@@ -20,10 +20,10 @@ class proxy : public boost::noncopyable
 {
 public:
     proxy(asio::io_service& io, std::vector<ip::tcp::endpoint> inbound, const ip::tcp::endpoint& outbound_http,
-          const ip::udp::endpoint& outbound_ns,
-          const time_duration& receive_timeout, const time_duration& connect_timeout, 
-		  const time_duration& resolve_timeout, const std::vector<std::string>& allowed_headers,
-          std::string error_pages_dir);
+          const ip::udp::endpoint& outbound_ns, const ip::udp::endpoint& name_server,
+          const time_duration& receive_timeout, const time_duration& connect_timeout,
+          const time_duration& resolve_timeout, const std::vector<std::string>& allowed_headers,
+          std::string error_pages_dir, bool use_unbound_resolve);
 
     // called by main (parent)
     void start();

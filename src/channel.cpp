@@ -118,7 +118,7 @@ void channel::input_timeouted(const error_code& ec)
 
 void channel::splice_from_input()
 {
-    error_code ec(0, boost::system::generic_category);
+    error_code ec(0, boost::system::generic_category());
     std::size_t avail = input.available(ec);
     if (ec)
         return finish(ec);
