@@ -56,7 +56,7 @@ def configure(conf):
 	dbg.set_variant('debug')
 	conf.set_env_name('debug', dbg)
 	conf.setenv('debug')
-	conf.env.CXXFLAGS = ['-D_REENTRANT', '-DDBG_ENABLED', '-Wall', '-O0', '-ggdb3', '-ftemplate-depth-128']
+	conf.env.append_value('CXXFLAGS', ['-D_REENTRANT', '-DDBG_ENABLED', '-Wall', '-O0', '-ggdb3', '-ftemplate-depth-128'])
 
 	rel.set_variant('release')
 	conf.set_env_name('release', rel)
