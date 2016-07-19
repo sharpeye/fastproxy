@@ -213,7 +213,7 @@ void session::finished_connecting_to_peer(const error_code& ec)
 void session::start_sending_header()
 {
     prepare_header();
-    filter_headers();
+    process_headers();
     responder.async_send(output_headers, boost::bind(&session::finished_sending_header, this, placeholders::error()));
 }
 
@@ -295,16 +295,11 @@ void session::prepare_header()
 
 lstring get_next_header(const lstring& headers, const lstring& current)
 {
-    if (*current.end == '\r' || *current.end == '\n')
-        return lstring();
     const char* header = std::find(current.end, headers.end, '\n');
-    if (header == headers.end)
-        return lstring();
-    else
-        return lstring(current.end, header + 1);
+    return lstring(current.end, header + 1);
 }
 
-void session::filter_headers()
+void session::process_headers()
 {
     const headers_type& allowed_headers = parent_proxy.get_allowed_headers();
     if (allowed_headers.empty())
@@ -314,30 +309,36 @@ void session::filter_headers()
     }
 
     const lstring headers(asio::buffer_cast<const char*>(headers_tail), asio::buffer_cast<const char*>(headers_tail) + asio::buffer_size(headers_tail));
-    lstring allowed = get_next_header(headers, lstring(headers.begin, headers.begin));
-    if (!allowed)
-    {
-        output_headers.push_back(headers_tail);
-        return;
-    }
 
-    for (;;)
+    lstring header(headers.begin, headers.begin);
+
+    // The first line is request itself, it has to be passed as is
+    header = get_next_header(headers, header);
+    output_headers.push_back(asio::const_buffer(header.begin, header.size()));
+
+    // Request line is followed by headers, process header lines one-by-one till the first empty line
+    for (header = get_next_header(headers, header); !header.empty(); header = get_next_header(headers, header))
     {
-        const lstring& header = get_next_header(headers, allowed);
-        if (!header)
-            break;
-        if (allowed_headers.find(header) == allowed_headers.end())
+        std::map<lstring, lstring>::const_iterator entry = allowed_headers.find(header);
+        if (entry != allowed_headers.end())
         {
-            if (allowed)
-                output_headers.push_back(asio::const_buffer(allowed.begin, allowed.size()));
-            allowed.begin = header.end;
+            if (entry->second.empty())
+            {
+                // Just passthrough allowed header
+                output_headers.push_back(asio::const_buffer(header.begin, header.size()));
+            }
+            else
+            {
+                // Replace found header name with the new one...
+                output_headers.push_back(asio::const_buffer(entry->second.begin, entry->second.size()));
+                // ...and leave its value as-is.
+                output_headers.push_back(asio::const_buffer(header.begin + entry->first.size(), header.size() - entry->first.size()));
+            }
         }
-        allowed.end = header.end;
     }
-    allowed.end = headers.end;
 
-    if (allowed)
-        output_headers.push_back(asio::const_buffer(allowed.begin, allowed.size()));
+    // Copy everything left beyond headers
+    output_headers.push_back(asio::const_buffer(header.begin, headers.end - header.begin));
 }
 
 const channel& session::get_request_channel() const

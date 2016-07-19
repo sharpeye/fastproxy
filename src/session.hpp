@@ -69,7 +69,7 @@ protected:
 
     const char* parse_header(std::size_t size);
     void prepare_header();
-    void filter_headers();
+    void process_headers();
 
 private:
     friend class channel;

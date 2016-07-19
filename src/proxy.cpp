@@ -10,6 +10,7 @@
 #include <functional>
 #include <boost/bind.hpp>
 #include <boost/format.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "proxy.hpp"
 #include "statistics.hpp"
@@ -27,6 +28,7 @@ proxy::proxy(asio::io_service& io, std::vector<ip::tcp::endpoint> inbound, const
              const ip::udp::endpoint& outbound_ns, const ip::udp::endpoint& name_server,
              const time_duration& receive_timeout, const time_duration& connect_timeout,
              const time_duration& resolve_timeout, const std::vector<std::string>& allowed_headers,
+             const std::vector<std::string>& rename_headers,
              const std::string error_pages_dir, bool use_unbound_resolve)
     : resolver_(io, outbound_ns, name_server, use_unbound_resolve)
     , outbound_http(outbound_http)
@@ -34,10 +36,41 @@ proxy::proxy(asio::io_service& io, std::vector<ip::tcp::endpoint> inbound, const
     , connect_timeout(connect_timeout)
     , resolve_timeout(resolve_timeout)
     , sessions(std::ptr_fun(session_less))
-    , headers_cont(allowed_headers)
 {
-    for (auto it = headers_cont.begin(); it != headers_cont.end(); ++it)
-        this->allowed_headers.insert(it->c_str());
+    headers.push_back("");
+    lstring empty(headers.back().c_str());
+
+    // Construct header mapping, every header which is mapped implies that
+    // it is allowed (and the same map can be used for mapped and allowed
+    // headers).
+    for (size_t i = 0; i < rename_headers.size(); i++)
+    {
+        std::vector<std::string> value;
+
+        // Assume that parameters validation was done before and
+        // we deal with exactly 2 values separated with ':'.
+        boost::split(value, rename_headers[i], boost::is_any_of(":"));
+
+        headers.push_back(value[0]);
+        lstring original(headers.back().c_str());
+
+        headers.push_back(value[1]);
+        lstring replacement(headers.back().c_str());
+
+        this->allowed_headers[original] = replacement;
+    }
+
+    // For allowed (not mapped) headers there is no replacement
+    // value. Empty string is used to indicate the case.
+    for (size_t i = 0; i < allowed_headers.size(); i++)
+    {
+        headers.push_back(allowed_headers[i]);
+        lstring header(headers.back().c_str());
+        if (this->allowed_headers.find(header) == this->allowed_headers.end())
+        {
+            this->allowed_headers[header] = empty;
+        }
+    }
 
     for (int httpec = HTTP_BEGIN; httpec < HTTP_END; ++httpec)
     {

@@ -14,13 +14,17 @@ import signal
 class Test(unittest.TestCase):
     port = 32567
     timeout = 5
-    allowed_header = 'AllowedHeader'
     stat_sock = '/tmp/stat.sock'
 
+    allowed_header      = 'AllowedHeader'
+    original_header     = 'OriginalHeader'
+    replacement_header  = 'MuchBetterHeader'
+
     def setUp(self):
-        self.fastproxy = subprocess.Popen('../build/debug/src/fastproxy \
+        self.fastproxy = subprocess.Popen('../build/release/src/fastproxy \
             --ingoing-http=127.0.0.1:{0} --receive-timeout={1} --resolve-library=udns \
-            --udns-name-server=95.108.198.4 --allow-header={2} --ingoing-stat={3}'.format(self.port, self.timeout, self.allowed_header, self.stat_sock),
+            --udns-name-server=95.108.198.4 --allow-header={2} --rename-header={3}:{4} --ingoing-stat={5}'.format(
+                self.port, self.timeout, self.allowed_header, self.original_header, self.replacement_header, self.stat_sock),
             shell=True, env={'LD_LIBRARY_PATH': '/usr/local/lib64'}, preexec_fn=os.setsid)
         time.sleep(1)
 
@@ -65,7 +69,7 @@ class Test(unittest.TestCase):
         self.assertFalse(self.fastproxy.poll())
         self.assertRaises(BaseException, self.c.send('a'))
 
-    def test_header_filter(self):
+    def test_allowed_header(self):
         allowed_header = '{0}: test\r\n'.format(self.allowed_header)
         disallowed_header = 'DisAllowedHeader: test\r\n'
         request = self._send_request(allowed_header)
@@ -81,6 +85,34 @@ class Test(unittest.TestCase):
         header = '{0}{1}{0}{1}{0}'.format(allowed_header, disallowed_header)
         request = self._send_request(header)
         self.assertEqual(request, 'GET / HTTP/1.0\r\n{0}{0}{0}\r\n'.format(allowed_header))
+
+    def test_doesnot_allow_by_prefix(self):
+        allowed_header = '{0}: test\r\n'.format(self.allowed_header)
+        disallowed_header = 'AllowedHeaderExceptThis: test\r\n'
+
+        header = '{0}{1}{0}{1}{0}'.format(allowed_header, disallowed_header)
+        request = self._send_request(header)
+        self.assertEqual(request, 'GET / HTTP/1.0\r\n{0}{0}{0}\r\n'.format(allowed_header))
+
+    def test_rename_header(self):
+        allowed_header = '{0}: test\r\n'.format(self.allowed_header)
+        original_header = '{0}: test\r\n'.format(self.original_header)
+        replacement_header = '{0}: test\r\n'.format(self.replacement_header)
+        request = self._send_request(original_header)
+        self.assertEqual(request, 'GET / HTTP/1.0\r\n{0}\r\n'.format(replacement_header))
+
+        header = '{1}{1}{0}{0}{1}{1}'.format(allowed_header, original_header)
+        request = self._send_request(header)
+        self.assertEqual(request, 'GET / HTTP/1.0\r\n{1}{1}{0}{0}{1}{1}\r\n'.format(allowed_header, replacement_header))
+
+        header = '{0}{1}{0}{1}{0}'.format(allowed_header, original_header)
+        request = self._send_request(header)
+        self.assertEqual(request, 'GET / HTTP/1.0\r\n{0}{1}{0}{1}{0}\r\n'.format(allowed_header, replacement_header))
+
+    def test_explicitly_allow_replacement_header(self):
+        replacement_header = '{0}: test\r\n'.format(self.replacement_header)
+        request = self._send_request(replacement_header)
+        self.assertEqual(request, 'GET / HTTP/1.0\r\n\r\n')
 
     def test_http_methods(self):
         method='DELETE'

@@ -50,7 +50,7 @@ void fastproxy::parse_config(int argc, char* argv[])
     po::options_description desc("Allowed options");
     desc.add_options()
             ("help", "produce help message")
-            ("resolve-library", po::value<std::string>()->default_value("udns"), "DNS library to use for resolve ('udns', 'unbound')")
+            ("resolve-library", po::value<std::string>()->default_value("unbound"), "DNS library to use for resolve ('udns', 'unbound')")
 
             ("ingoing-http", po::value<endpoint_vec>()->required(), "http listening addresses")
             ("ingoing-stat", po::value<std::string>()->required(), "statistics listening socket")
@@ -68,6 +68,7 @@ void fastproxy::parse_config(int argc, char* argv[])
             ("udns-name-server", po::value<ip::udp::endpoint>(), "name server address for 'udns' library")
 
             ("allow-header", po::value<string_vec>()->default_value(string_vec(), "any"), "allowed header for requests")
+            ("rename-header", po::value<string_vec>()->default_value(string_vec(), ""), "header rename rule (<original name>:<new name>), only allowed headers are supported")
 
             ("stat-socket-user", po::value<std::string>()->default_value(getpwuid(getuid())->pw_name), "user for statistics socket")
             ("stat-socket-group", po::value<std::string>()->default_value(getgrgid(getgid())->gr_name), "group for statistics socket")
@@ -220,6 +221,7 @@ void fastproxy::init_proxy()
             boost::posix_time::seconds(vm["connect-timeout"].as<time_duration::sec_type>()),
             boost::posix_time::seconds(vm["resolve-timeout"].as<time_duration::sec_type>()),
             vm["allow-header"].as<string_vec>(),
+            vm["rename-header"].as<string_vec>(),
             vm["error-page-dir"].as<std::string>(),
             use_unbound_resolve));
 }

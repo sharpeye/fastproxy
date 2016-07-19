@@ -23,6 +23,7 @@ public:
           const ip::udp::endpoint& outbound_ns, const ip::udp::endpoint& name_server,
           const time_duration& receive_timeout, const time_duration& connect_timeout,
           const time_duration& resolve_timeout, const std::vector<std::string>& allowed_headers,
+          const std::vector<std::string>& rename_headers,
           std::string error_pages_dir, bool use_unbound_resolve);
 
     // called by main (parent)
@@ -61,8 +62,8 @@ private:
     time_duration connect_timeout;
     time_duration resolve_timeout;
     session_cont sessions;
-    headers_type allowed_headers;
-    std::vector<std::string> headers_cont;
+    std::vector<std::string> headers;                       // Stores actual header strings
+    headers_type allowed_headers;                           // Stores 'lstring' for quick header processing
     std::vector<char> error_pages[HTTP_END - HTTP_BEGIN];
     static logger log;
 };
