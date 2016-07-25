@@ -30,7 +30,7 @@ void asio_handler_deallocate(void* pointer, std::size_t size, channel::io_handle
 }
 
 template <typename Function>
-void asio_handler_invoke(Function function, channel::io_handler_wrapper* h);
+void asio_handler_invoke(Function function, channel::io_handler_wrapper* h)
 {
 	(*h->impl)(function.arg1_, function.arg2_);
 }
