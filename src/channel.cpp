@@ -24,9 +24,8 @@ void* asio_handler_allocate(std::size_t s, channel::io_handler_wrapper* h)
     return h->impl + 1;
 }
 
-void asio_handler_deallocate(void* pointer, std::size_t size, channel::io_handler_wrapper* h)
+void asio_handler_deallocate(void*, std::size_t, channel::io_handler_wrapper*)
 {
-	(void) (pointer, size, h);
 }
 
 template <typename Function>
