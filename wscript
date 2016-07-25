@@ -42,7 +42,7 @@ def configure(conf):
 
 	conf.check_tool('compiler_cxx')
 	conf.check_tool('boost')
-	conf.check_boost(version='1.45')
+	conf.check_boost(version='1.61.0')
 	conf.check_cxx(fragment='#include <udns.h>\nint main(){return 0;}\n', lib='udns', mandatory=True)
 	conf.check_cxx(fragment='#include <ldns/ldns.h>\nint main(){return 0;}\n', lib='ldns', mandatory=True)
 	conf.check_cxx(fragment='#include <unbound.h>\nint main(){return 0;}\n', lib='unbound', mandatory=True)
