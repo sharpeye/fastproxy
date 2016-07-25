@@ -6,6 +6,7 @@
  */
 
 #include <iostream>
+#include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/format.hpp>
 #include <boost/log/sources/channel_feature.hpp>
@@ -18,19 +19,20 @@ using namespace boost::system;
 
 const long PIPE_SIZE = 65536;
 
-void* asio_handler_allocate(std::size_t s, handler_t** h)
+void* asio_handler_allocate(std::size_t s, channel::io_handler_wrapper* h)
 {
-    return *h + 1;
+    return h->impl + 1;
 }
 
-void asio_handler_deallocate(void* pointer, std::size_t size, handler_t** h)
+void asio_handler_deallocate(void* pointer, std::size_t size, channel::io_handler_wrapper* h)
 {
+	(void) (pointer, size, h);
 }
 
 template <typename Function>
-void asio_handler_invoke(Function function, handler_t** h)
+void asio_handler_invoke(Function function, channel::io_handler_wrapper* h);
 {
-    (**h)(function.arg1_, function.arg2_);
+	(*h->impl)(function.arg1_, function.arg2_);
 }
 
 logger channel::log = logger(keywords::channel = "channel");
@@ -38,7 +40,7 @@ logger channel::log = logger(keywords::channel = "channel");
 channel::channel(ip::tcp::socket& input, ip::tcp::socket& output, session& parent_session, const time_duration& input_timeout, bool first_input_stat)
     : input(input)
     , output(output)
-    , input_timer(input.io_service())
+    , input_timer(input.get_io_service())
     , input_timeout(input_timeout)
     , pipe_size(0)
     , parent_session(parent_session)
@@ -70,15 +72,15 @@ void channel::start_waiting_input()
     TRACE();
     current_state = waiting_input;
     input_timer.expires_from_now(input_timeout);
-    input_timer.async_wait(boost::bind(&channel::input_timeouted, this, placeholders::error()));
-    input.async_read_some(asio::null_buffers(), &input_handler);
+	input_timer.async_wait( [this]( error_code ec ){ input_timeouted( ec ); } );
+	input.async_read_some(asio::null_buffers(), io_handler_wrapper(input_handler));
 }
 
 void channel::start_waiting_output()
 {
     TRACE();
     current_state = waiting_output;
-    output.async_write_some(asio::null_buffers(), &output_handler);
+	output.async_write_some(asio::null_buffers(), io_handler_wrapper(output_handler));
 }
 
 void channel::finished_waiting_input(const error_code& ec, std::size_t)

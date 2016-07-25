@@ -8,16 +8,8 @@
 #ifndef CHANNEL_HPP_
 #define CHANNEL_HPP_
 
-#include <boost/function.hpp>
+#include <functional>
 #include "common.hpp"
-
-typedef boost::function<void (const error_code&, std::size_t)> handler_t;
-
-void* asio_handler_allocate(std::size_t s, handler_t** h);
-void asio_handler_deallocate(void* pointer, std::size_t size, handler_t** h);
-template <typename Function>
-void asio_handler_invoke(Function function, handler_t** h);
-
 #include <boost/asio.hpp>
 #include <boost/utility.hpp>
 
@@ -28,6 +20,18 @@ class session;
 class channel : public boost::noncopyable
 {
 public:
+	typedef boost::function<void(const error_code&, std::size_t)> io_handler;
+	struct io_handler_wrapper
+	{
+		io_handler* impl;
+
+		explicit io_handler_wrapper(io_handler& impl)
+			: impl(&impl)
+		{}
+
+		void operator () (error_code, std::size_t); // To meet the requirements of Read/WriteHandler concept
+	};
+
     // first_input_stat: increment "first_input_time" statistic by elapse from start time
     channel(ip::tcp::socket& input, ip::tcp::socket& output, session& parent_session, const time_duration& input_timeout, bool first_input_stat=false);
     ~channel();
@@ -71,10 +75,10 @@ private:
     int pipe[2];
     long pipe_size;
     session& parent_session;
-    static const std::size_t size_of_operation = sizeof(asio::detail::reactive_null_buffers_op<handler_t*>);
-    handler_t input_handler;
+    static const std::size_t size_of_operation = sizeof(asio::detail::reactive_null_buffers_op<io_handler_wrapper>);
+	io_handler input_handler;
     char space_for_input_op[size_of_operation];
-    handler_t output_handler;
+	io_handler output_handler;
     char space_for_output_op[size_of_operation];
 
     // statistics data

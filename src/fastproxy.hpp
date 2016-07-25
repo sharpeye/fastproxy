@@ -43,7 +43,7 @@ private:
     void quit(const error_code& ec);
 
     bool check_channel_impl(const std::string& channel) const;
-    friend bool check_channel(const std::string& channel);
+    friend bool check_channel(const boost::log::value_ref<std::string>& channel);
 
     po::variables_map vm;
     asio::io_service io;

@@ -52,7 +52,7 @@ void statistics::start()
 
 void statistics::start_accept()
 {
-    std::unique_ptr<statistics_session> new_sess(new statistics_session(acceptor.io_service(), *this));
+    std::unique_ptr<statistics_session> new_sess(new statistics_session(acceptor.get_io_service(), *this));
     acceptor.async_accept(new_sess->socket(), boost::bind(&statistics::finished_accept, this, placeholders::error(), new_sess.get()));
     new_sess.release();
 }

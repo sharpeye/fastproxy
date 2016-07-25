@@ -118,7 +118,7 @@ void proxy::finished_session(session* session, const boost::system::error_code& 
 
 void proxy::start_accept(ip::tcp::acceptor& acceptor)
 {
-    std::unique_ptr<session> new_sess(new session(acceptor.io_service(), *this));
+    std::unique_ptr<session> new_sess(new session(acceptor.get_io_service(), *this));
     acceptor.async_accept(new_sess->socket(), boost::bind(&proxy::handle_accept, this, placeholders::error(), new_sess.get(), boost::ref(acceptor)));
     new_sess.release();
 }

@@ -15,12 +15,13 @@
 #include <boost/asio.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/exception/all.hpp>
+#include <boost/phoenix/bind.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/sources/channel_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
-#include <boost/log/utility/init/to_console.hpp>
-#include <boost/log/utility/init/common_attributes.hpp>
-#include <boost/log/filters.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/utility/setup/console.hpp>
 #include <boost/filesystem.hpp>
 
 #include <pthread.h>
@@ -44,6 +45,20 @@ fastproxy& fastproxy::instance()
 
 typedef std::vector<std::string> string_vec;
 typedef std::vector<ip::tcp::endpoint> endpoint_vec;
+
+namespace boost { namespace asio { namespace ip {
+template<class protocol>
+bool operator >> (std::basic_istream<char>& stream, ip::basic_endpoint<protocol>& endpoint)
+{
+	std::string str;
+	stream >> str;
+	std::string::iterator colon = std::find( str.begin(), str.end(), ':' );
+	endpoint.address( ip::address::from_string( std::string( str.begin(), colon ) ) );
+	if( colon != str.end() )
+		endpoint.port( atoi( &*colon + 1 ) );
+	return true;
+}
+}}}
 
 void fastproxy::parse_config(int argc, char* argv[])
 {
@@ -111,9 +126,9 @@ void fastproxy::parse_config(int argc, char* argv[])
     }
 }
 
-bool check_channel(const std::string& channel)
+bool check_channel(const boost::log::value_ref<std::string>& channel)
 {
-    return fastproxy::instance().check_channel_impl(channel);
+    return fastproxy::instance().check_channel_impl(*channel);
 }
 
 bool fastproxy::check_channel_impl(const std::string& channel) const
@@ -128,16 +143,18 @@ void fastproxy::init_logging()
         auto chans = vm["log-channel"].as<string_vec>();
         channels.insert(chans.begin(), chans.end());
     }
+
     boost::log::add_common_attributes();
-    boost::log::init_log_to_console
-    (
-            std::cerr,
-            keywords::format = "[%TimeStamp%]: %Channel%: %_%"
-    );
+	boost::log::add_console_log
+	(
+		std::cerr,
+		keywords::format = "[%TimeStamp%]: %Channel%: %_%"
+	);
+
     boost::log::core::get()->set_filter
     (
-        boost::log::filters::attr<severity_level>("Severity") >= vm["log-level"].as<int>() &&
-        boost::log::filters::attr<std::string>("Channel").satisfies(&check_channel)
+		boost::log::trivial::severity >= vm["log-level"].as<int>() &&
+		boost::phoenix::bind( &check_channel, boost::log::expressions::attr<std::string>("Channel"))
     );
 }
 
@@ -199,7 +216,8 @@ void fastproxy::init_statistics()
     }
     int res = chown(stat_sock.c_str(), pwnam->pw_uid, grnam->gr_gid);
     if (res != 0)
-        perror(("chown(" + stat_sock + ", " + vm["stat-socket-user"].as<std::string>() + ", " + vm["stat-socket-group"].as<std::string>() + ")").c_str());
+        perror(("chown(" + stat_sock + ", " + vm["stat-socket-user"].as<std::string>() + ", " + 
+			vm["stat-socket-group"].as<std::string>() + ")").c_str());
 }
 
 void fastproxy::init_proxy()
@@ -229,18 +247,6 @@ void fastproxy::init_proxy()
 void fastproxy::init_resolver()
 {
     resolver::init();
-}
-
-template<class stream_type, class protocol>
-bool operator >> (stream_type& stream, ip::basic_endpoint<protocol>& endpoint)
-{
-    std::string str;
-    stream >> str;
-    std::string::iterator colon = std::find(str.begin(), str.end(), ':');
-    endpoint.address(ip::address::from_string(std::string(str.begin(), colon)));
-    if (colon != str.end())
-        endpoint.port(atoi(&*colon + 1));
-    return true;
 }
 
 proxy* fastproxy::find_proxy()
